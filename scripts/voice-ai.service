@@ -1,0 +1,17 @@
+[Unit]
+Description=Autonomous Offline Voice AI Assistant
+After=sound.target local-fs.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/ai
+ExecStart=/bin/bash /home/pi/ai/voice_service_launcher.sh
+Restart=always
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

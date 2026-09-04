@@ -106,7 +106,7 @@ run_cycle() {
     echo "Transcribing..."
     
     T_STT_0=$(date +%s)
-    STT_RAW=$(LD_LIBRARY_PATH="$WHISPER_LIB" "$WHISPER_BIN" -m "$WHISPER_MODEL" -f "$AUDIO_INPUT" -t 4 --no-timestamps 2>&1)
+    STT_RAW=$(LD_LIBRARY_PATH="$WHISPER_LIB" "$WHISPER_BIN" -m "$WHISPER_MODEL" -f "$AUDIO_INPUT" -t 4 --no-timestamps -nf -sns 2>&1)
     T_STT_1=$(date +%s)
     STT_DUR=$(( T_STT_1 - T_STT_0 ))
 
