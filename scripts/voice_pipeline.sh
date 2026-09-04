@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # Unified Voice AI Pipeline for Raspberry Pi Zero 2 W
-# Flow: Input Audio -> Whisper STT -> SmolLM2-360M LLM -> Flite TTS Audio Reply
+# Full Autonomous Flow: Live Mic -> Whisper STT -> SmolLM2 LLM -> Flite TTS -> Speaker
 # ==============================================================================
 
 set -e
@@ -19,11 +19,15 @@ TEXT_INPUT=""
 AUDIO_INPUT=""
 STT_MODEL_NAME="tiny"
 RUN_LLM=true
+LIVE_MIC=false
+RECORD_SECONDS=4
 
 print_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
+    echo "  --talk, -l             Live Mode: Record question from USB microphone and play response on speaker"
+    echo "  -d, --duration SEC     Recording duration for live mic mode in seconds (default: 4)"
     echo "  -a, --ask \"QUESTION\"   Synthesize question audio, transcribe it, prompt LLM, and speak answer"
     echo "  -f, --file FILE.wav    Transcribe existing audio file and pass to LLM"
     echo "  -m, --model tiny|base  Choose Whisper model (default: tiny)"
@@ -33,6 +37,8 @@ print_help() {
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        --talk|-l) LIVE_MIC=true ;;
+        -d|--duration) RECORD_SECONDS="$2"; shift ;;
         -a|--ask) TEXT_INPUT="$2"; shift ;;
         -f|--file) AUDIO_INPUT="$2"; shift ;;
         -m|--model) STT_MODEL_NAME="$2"; shift ;;
@@ -43,25 +49,48 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Detect USB Audio Cards for Mic and Speaker
+detect_usb_cards() {
+    USB_CAP=$(arecord -l 2>/dev/null | grep -i "usb" | head -n 1 | sed -E 's/card ([0-9]+).*/\1/' || true)
+    USB_PLAY=$(aplay -l 2>/dev/null | grep -i "usb" | head -n 1 | sed -E 's/card ([0-9]+).*/\1/' || true)
+    
+    # Fallback to card 1 if not explicitly labeled USB
+    MIC_DEV="plughw:${USB_CAP:-1},0"
+    SPK_DEV="plughw:${USB_PLAY:-1},0"
+}
+
+detect_usb_cards
+
 if [ "$STT_MODEL_NAME" == "base" ]; then
     WHISPER_MODEL="$BASE_DIR/models/ggml-base.en.bin"
 else
     WHISPER_MODEL="$BASE_DIR/models/ggml-tiny.en.bin"
 fi
 
-if [ -z "$AUDIO_INPUT" ] && [ -z "$TEXT_INPUT" ]; then
-    TEXT_INPUT="What is the capital of France?"
-fi
-
-# Step 1: Input Audio
+# Step 1: Obtain Audio Input
 QUESTION_WAV="$BASE_DIR/current_question.wav"
-if [ -n "$TEXT_INPUT" ]; then
+
+if [ "$LIVE_MIC" = true ]; then
+    echo "=================================================================="
+    echo "[1/3] LIVE MICROPHONE RECORDING"
+    echo "Device: $MIC_DEV"
+    echo "Recording for $RECORD_SECONDS seconds... Speak now!"
+    echo "------------------------------------------------------------------"
+    
+    arecord -D "$MIC_DEV" -f S16_LE -r 16000 -c 1 -d "$RECORD_SECONDS" "$QUESTION_WAV"
+    AUDIO_INPUT="$QUESTION_WAV"
+    echo "Recording finished: $AUDIO_INPUT"
+elif [ -n "$TEXT_INPUT" ]; then
     echo "=================================================================="
     echo "[1/3] USER VOICE SYNTHESIS (Simulating spoken input)"
     echo "Input Text: \"$TEXT_INPUT\""
     flite -voice slt -t "$TEXT_INPUT" -o "$QUESTION_WAV"
     AUDIO_INPUT="$QUESTION_WAV"
     echo "Audio generated: $AUDIO_INPUT"
+elif [ -z "$AUDIO_INPUT" ]; then
+    TEXT_INPUT="What is the capital of France?"
+    flite -voice slt -t "$TEXT_INPUT" -o "$QUESTION_WAV"
+    AUDIO_INPUT="$QUESTION_WAV"
 fi
 
 # Step 2: Speech to Text (Whisper)
@@ -77,7 +106,7 @@ T_STT_1=$(date +%s)
 STT_DUR=$(( T_STT_1 - T_STT_0 ))
 
 TRANSCRIBED=$(echo "$STT_RAW" | grep -v 'whisper_' | grep -v 'system_info' | grep -v 'read_audio' | sed '/^[[:space:]]*$/d' | tail -n 1 | sed 's/^[ \t]*//')
-echo "Transcribed Question: \"$TRANSCRIBED\" (in ${STT_DUR}s)"
+echo "Transcribed: \"$TRANSCRIBED\" (in ${STT_DUR}s)"
 
 if [ "$RUN_LLM" = false ]; then
     echo "=================================================================="
@@ -127,4 +156,11 @@ echo "AI Response: \"$ANSWER\" (in ${LLM_DUR}s)"
 REPLY_WAV="$BASE_DIR/current_reply.wav"
 flite -voice slt -t "$ANSWER" -o "$REPLY_WAV"
 echo "Spoken Audio Reply: $REPLY_WAV"
+
+# If live mode, play directly to the USB speaker
+if [ "$LIVE_MIC" = true ]; then
+    echo "Playing response on speaker ($SPK_DEV)..."
+    aplay -D "$SPK_DEV" "$REPLY_WAV" 2>/dev/null || aplay "$REPLY_WAV" 2>/dev/null || true
+fi
+
 echo "=================================================================="
