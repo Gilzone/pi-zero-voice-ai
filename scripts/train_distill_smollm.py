@@ -28,7 +28,7 @@ def main():
     print(f"=== Starting Training on {num_threads} CPU Threads ===")
 
     base_dir = os.path.dirname(__file__)
-    data_file = os.path.join(base_dir, "data", "distillation_train.jsonl")
+    data_file = os.path.join(base_dir, "data", "distillation_reasoning_train.jsonl")
     output_merged_dir = os.path.join(base_dir, "models", "smollm2-360m-qwen-merged")
     os.makedirs(os.path.dirname(output_merged_dir), exist_ok=True)
 

@@ -62,19 +62,47 @@ def main():
     print(f"Target Budget (<= 224 MB): {'PASSED' if q3_size_mb <= 224 else 'EXCEEDED'}")
     print(f"==================================================")
 
-    # 3. Quick Verification Test
-    print("\n=== Step 3: Running Quick Test Prompt with llama-cli ===")
-    test_prompt = "<|im_start|>system\nYou are a concise voice assistant. Answer directly in 1 short sentence.<|im_end|>\n<|im_start|>user\nWhy is the sky blue?<|im_end|>\n<|im_start|>assistant\n"
-    cmd_test = [
+    # 3. Create System Prompt Cache for Instant 0.0s Startup
+    print("\n=== Step 3: Generating Persistent Prompt Cache ===")
+    cache_file = os.path.join(base_dir, "models", "voice_sys_cache.bin")
+    sys_prompt = "<|im_start|>system\nYou are a concise voice assistant. Think step-by-step inside <think> tags, then answer directly in 1 short sentence.<|im_end|>\n"
+    cmd_cache = [
         llama_cli,
         "-m", q3_gguf,
-        "-p", test_prompt,
-        "-n", "32",
-        "--temp", "0.2",
-        "--top-p", "0.9",
-        "--no-display-prompt"
+        "-p", sys_prompt,
+        "--prompt-cache", cache_file,
+        "-n", "1",
+        "-no-cnv"
     ]
-    subprocess.run(cmd_test)
+    subprocess.run(cmd_cache)
+    if os.path.exists(cache_file):
+        print(f"Prompt cache generated: {cache_file} ({os.path.getsize(cache_file)/1024:.1f} KB)")
+
+    # 4. Multi-Question Logic & Reasoning Benchmark
+    print("\n=== Step 4: Testing Logic, Math & Factual Reasoning ===")
+    test_questions = [
+        "Why is the sky blue?",
+        "Which is heavier: a pound of feathers or two pounds of gold?",
+        "If today is Sunday, what day was it 4 days ago?",
+        "What is the capital of Australia?"
+    ]
+
+    for q in test_questions:
+        print(f"\n[Test Question]: {q}")
+        p = f"{sys_prompt}<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n"
+        cmd_test = [
+            llama_cli,
+            "-m", q3_gguf,
+            "-p", p,
+            "-n", "80",
+            "-no-cnv",
+            "--temp", "0.2",
+            "--top-p", "0.9",
+            "--no-display-prompt"
+        ]
+        res = subprocess.run(cmd_test, capture_output=True, text=True)
+        out = res.stdout.strip()
+        print(f"[Full Output]: {out}")
 
 if __name__ == "__main__":
     main()
