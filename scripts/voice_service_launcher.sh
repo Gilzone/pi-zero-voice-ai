@@ -113,18 +113,22 @@ while true; do
         T_LLM_0=$(date +%s)
         echo "$TRANSCRIBED" | LD_LIBRARY_PATH="$LLAMA_LIB" "$LLAMA_BIN" \
           -m "$LLM_MODEL" \
-          -t 4 -c 384 -n 48 -b 128 -ub 64 \
+          -t 4 -c 256 -n 36 -b 128 -ub 64 \
           --load-mode mmap --fit off \
           -ctk q8_0 -ctv q8_0 \
           --temp 0.2 --top-p 0.9 --repeat-penalty 1.15 \
-          -sys "You are a concise voice assistant. Answer directly in 1 short sentence." \
+          -sys "Answer in 1 short sentence." \
           -cnv > "$RAW_LLM_FILE" 2>&1 || true
         T_LLM_1=$(date +%s)
         LLM_DUR=$(( T_LLM_1 - T_LLM_0 ))
 
         ANSWER=$(python3 -c "
 import re
-lines = open('$RAW_LLM_FILE').readlines()
+try:
+    with open('$RAW_LLM_FILE', 'r', encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+except Exception:
+    lines = []
 res = ''
 for i, l in enumerate(lines):
     if '> EOF by user' in l:
@@ -136,7 +140,8 @@ for i, l in enumerate(lines):
         break
 res = re.sub(r'<think>.*?</think>', '', res, flags=re.DOTALL)
 res = re.sub(r'<[^>]+>', '', res)
-res = res.strip()
+res = re.sub(r'[^\x20-\x7E]', ' ', res)
+res = ' '.join(res.split()).strip()
 print(res if res else 'I am your offline assistant.')
 ")
 
