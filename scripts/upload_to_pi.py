@@ -47,7 +47,12 @@ if __name__ == "__main__":
     model_file = os.path.join(base_dir, "models", "smollm2-360m-qwen-distill-q3_k_m.gguf")
     cache_file = os.path.join(base_dir, "models", "voice_sys_cache.bin")
     
-    if len(sys.argv) > 1 and sys.argv[1] == "--cache-only":
+    if len(sys.argv) > 2:
+        upload_file(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--draft":
+        draft_path = os.path.join(base_dir, "models", "smollm2-135m-instruct-q2_k.gguf")
+        upload_file(draft_path, "/home/pi/ai/models/smollm2-135m-instruct-q2_k.gguf")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--cache-only":
         upload_file(cache_file, "/home/pi/ai/models/voice_sys_cache.bin")
     else:
         upload_file(model_file, "/home/pi/ai/models/smollm2-360m-qwen-distill-q3_k_m.gguf")
