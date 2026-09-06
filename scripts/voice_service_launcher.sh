@@ -45,7 +45,10 @@ while true; do
     # 2. Configure Audio Mixer Levels
     sleep 1
     amixer -c "$CARD_NUM" sset 'Speaker' 90% unmute >/dev/null 2>&1 || true
+    amixer -c "$CARD_NUM" sset 'PCM' 85% unmute >/dev/null 2>&1 || true
+    amixer -c "$CARD_NUM" sset 'Master' 90% unmute >/dev/null 2>&1 || true
     amixer -c "$CARD_NUM" sset 'Mic' 92% cap unmute >/dev/null 2>&1 || true
+    amixer -c "$CARD_NUM" sset 'Capture' 92% cap unmute >/dev/null 2>&1 || true
 
     # 3. Audio Greeting to signal the device is ready
     echo "Synthesizing boot greeting..."
