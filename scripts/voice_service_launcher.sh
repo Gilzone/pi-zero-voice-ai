@@ -94,7 +94,7 @@ while true; do
         echo "Transcribing with Whisper..."
 
         T0=$(date +%s)
-        STT_RAW=$(LD_LIBRARY_PATH="$WHISPER_LIB" "$WHISPER_BIN" -m "$WHISPER_MODEL" -f "$QUESTION_WAV" -t 4 --no-timestamps -nf -sns 2>&1)
+        STT_RAW=$(LD_LIBRARY_PATH="$WHISPER_LIB" "$WHISPER_BIN" -m "$WHISPER_MODEL" -f "$QUESTION_WAV" -t 4 --no-timestamps -nf -sns -bs 1 -bo 1 -ac 512 2>&1)
         T1=$(date +%s)
         STT_DUR=$(( T1 - T0 ))
 
