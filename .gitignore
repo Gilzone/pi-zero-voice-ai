@@ -1,6 +1,12 @@
-﻿*.tmp
+*.tmp
 *.log
 .DS_Store
 Thumbs.db
 __pycache__/
 *.pyc
+bin/
+llama.cpp/
+scripts/models/
+scripts/data/
+*.gguf
+
