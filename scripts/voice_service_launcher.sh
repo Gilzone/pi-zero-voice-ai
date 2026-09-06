@@ -153,8 +153,75 @@ print(res if res else 'I am your offline assistant.')
 
         echo "AI Reply: \"$ANSWER\" (LLM: ${LLM_DUR}s)"
 
+        T_TTS_0=$(date +%s)
         flite -voice slt -t "$ANSWER" -o "$REPLY_WAV"
+        T_TTS_1=$(date +%s)
+        TTS_DUR=$(( T_TTS_1 - T_TTS_0 ))
+
+        T_PLAY_0=$(date +%s)
         aplay -D "$SPK_DEV" "$REPLY_WAV" 2>/dev/null || true
+        T_PLAY_1=$(date +%s)
+        PLAY_DUR=$(( T_PLAY_1 - T_PLAY_0 ))
+
+        TOTAL_TO_SPEAK=$(( STT_DUR + LLM_DUR + TTS_DUR ))
+        TOTAL_ROUNDTRIP=$(( TOTAL_TO_SPEAK + PLAY_DUR ))
+
+        # Format and record comprehensive benchmark report
+        python3 -c "
+import os, re
+
+whisper_file = '$RAW_STT_FILE'
+llm_file = '$RAW_LLM_FILE'
+w_enc, w_dec = 0.0, 0.0
+llm_tps, llm_tokens, prompt_s = 0.0, 0, 0.0
+
+try:
+    with open(whisper_file, 'r', encoding='utf-8', errors='replace') as f:
+        w_text = f.read()
+    m_enc = re.search(r'encode time\s*=\s*([\d\.]+)\s*ms', w_text)
+    m_dec = re.search(r'decode time\s*=\s*([\d\.]+)\s*ms', w_text)
+    if m_enc: w_enc = float(m_enc.group(1)) / 1000.0
+    if m_dec: w_dec = float(m_dec.group(1)) / 1000.0
+except Exception:
+    pass
+
+try:
+    with open(llm_file, 'r', encoding='utf-8', errors='replace') as f:
+        l_text = f.read()
+    m_peval = re.search(r'prompt eval time\s*=\s*([\d\.]+)\s*ms\s*/\s*(\d+)\s*tokens', l_text)
+    m_eval = re.search(r'eval time\s*=\s*([\d\.]+)\s*ms\s*/\s*(\d+)\s*runs\s*\(\s*[\d\.]+\s*ms per token,\s*([\d\.]+)\s*tokens per second\)', l_text)
+    if m_peval: prompt_s = float(m_peval.group(1)) / 1000.0
+    if m_eval:
+        llm_tokens = int(m_eval.group(2))
+        llm_tps = float(m_eval.group(3))
+except Exception:
+    pass
+
+report = f'''
+=================================================================
+                 VOICE INTERACTION BENCHMARK
+=================================================================
+🎤 User Query  : \"$TRANSCRIBED\"
+🤖 AI Response : \"$ANSWER\"
+-----------------------------------------------------------------
+⏱️  STT (Whisper) : ${STT_DUR}s (Encode: {w_enc:.2f}s, Decode: {w_dec:.2f}s)
+🧠 LLM (SmolLM2) : ${LLM_DUR}s ({llm_tps:.2f} t/s, {llm_tokens} tokens, Prompt: {prompt_s:.2f}s)
+🗣️  TTS (Flite)   : ${TTS_DUR}s
+🔊 Playback     : ${PLAY_DUR}s
+-----------------------------------------------------------------
+⚡ Time-to-Speak : ${TOTAL_TO_SPEAK}s (User stopped talking -> Speech begins)
+🏁 Total Elapsed : ${TOTAL_ROUNDTRIP}s (Audio playback finished)
+=================================================================
+'''
+print(report)
+
+try:
+    with open('/home/pi/ai/interaction_benchmarks.log', 'a', encoding='utf-8') as f:
+        f.write(report + '\n')
+except Exception:
+    pass
+"
+
         JUST_ANSWERED=true
         sleep 1
     done
