@@ -119,11 +119,11 @@ while true; do
         T_LLM_0=$(date +%s)
         echo "$TRANSCRIBED" | LD_LIBRARY_PATH="$LLAMA_LIB" "$LLAMA_BIN" \
           -m "$LLM_MODEL" \
-          -t 4 -c 256 -n 36 -b 128 -ub 64 \
+          -t 4 -c 256 -n 52 -b 128 -ub 64 \
           --load-mode mmap --fit off \
           -ctk q8_0 -ctv q8_0 \
-          --temp 0.2 --top-p 0.9 --repeat-penalty 1.15 \
-          -sys "Answer in 1 short sentence." \
+          --temp 0.0 --repeat-penalty 1.0 \
+          -sys "You are a helpful and factual voice assistant. Answer accurately in 1 sentence." \
           -cnv > "$RAW_LLM_FILE" 2>&1 || true
         T_LLM_1=$(date +%s)
         LLM_DUR=$(( T_LLM_1 - T_LLM_0 ))
