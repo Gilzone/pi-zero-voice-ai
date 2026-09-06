@@ -19,6 +19,7 @@ REPLY_WAV="$BASE_DIR/current_reply.wav"
 GREETING_WAV="$BASE_DIR/greeting.wav"
 CHIME_WAV="$BASE_DIR/chime.wav"
 RAW_LLM_FILE="/tmp/llm_raw_out.txt"
+RAW_STT_FILE="/tmp/whisper_raw_out.txt"
 ENERGY_SCRIPT="$BASE_DIR/check_audio_energy.py"
 
 RECORD_SECONDS=6
@@ -94,11 +95,16 @@ while true; do
         echo "Transcribing with Whisper..."
 
         T0=$(date +%s)
-        STT_RAW=$(LD_LIBRARY_PATH="$WHISPER_LIB" "$WHISPER_BIN" -m "$WHISPER_MODEL" -f "$QUESTION_WAV" -t 4 --no-timestamps -nf -sns -bs 1 -bo 1 -ac 512 2>&1)
+        rm -f "$RAW_STT_FILE"
+        LD_LIBRARY_PATH="$WHISPER_LIB" "$WHISPER_BIN" \
+          -m "$WHISPER_MODEL" \
+          -f "$QUESTION_WAV" \
+          -t 4 --no-timestamps -nf -sns -bs 1 -bo 1 -ac 512 \
+          > "$RAW_STT_FILE" 2>&1 || true
         T1=$(date +%s)
         STT_DUR=$(( T1 - T0 ))
 
-        TRANSCRIBED=$(echo "$STT_RAW" | grep -v 'whisper_' | grep -v 'system_info' | grep -v 'read_audio' | sed '/^[[:space:]]*$/d' | tail -n 1 | sed 's/^[ \t]*//')
+        TRANSCRIBED=$(grep -v 'whisper_' "$RAW_STT_FILE" | grep -v 'system_info' | grep -v 'read_audio' | grep -v 'main:' | sed '/^[[:space:]]*$/d' | tail -n 1 | sed 's/^[ \t]*//')
         CLEAN=$(echo "$TRANSCRIBED" | tr -d '[:punct:][:space:]')
 
         if [ -z "$CLEAN" ] || [ "${#CLEAN}" -lt 3 ]; then
